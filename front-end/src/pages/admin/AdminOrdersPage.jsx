@@ -24,12 +24,13 @@ export default function AdminOrdersPage() {
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const params = statusFilter ? { status: statusFilter } : {};
-      const data = await adminOrderService.getOrders(params);
-      setOrders(data);
+      const params = statusFilter ? { orderStatus: statusFilter, limit: 100 } : { limit: 100 };
+      const response = await adminOrderService.getOrders(params);
+      setOrders(response.items || []);
     } catch (error) {
       console.error('Error loading orders:', error);
       toast.error('Không thể tải danh sách đơn hàng');
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -138,7 +139,7 @@ export default function AdminOrdersPage() {
                       {order.customerName}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {order.phone}
+                      {order.customerPhone}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap font-medium">
                       {formatCurrency(order.totalAmount)}
@@ -147,7 +148,7 @@ export default function AdminOrdersPage() {
                       {order.paymentMethod === 'cod' ? 'COD' : 'Chuyển khoản'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(order.status)}
+                      {getStatusBadge(order.orderStatus)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {new Date(order.createdAt).toLocaleDateString('vi-VN')}

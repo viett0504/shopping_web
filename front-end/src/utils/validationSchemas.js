@@ -18,19 +18,19 @@ export const checkoutSchema = z.object({
 export const productSchema = z.object({
   name: z.string().min(1, 'Tên sản phẩm là bắt buộc'),
   slug: z.string().min(1, 'Slug là bắt buộc'),
-  categoryId: z.number().min(1, 'Danh mục là bắt buộc'),
-  price: z.number().min(0, 'Giá phải lớn hơn hoặc bằng 0'),
-  salePrice: z.number().min(0, 'Giá sale phải lớn hơn hoặc bằng 0').optional().nullable(),
+  categoryId: z.coerce.number().min(1, 'Danh mục là bắt buộc'),
+  price: z.coerce.number().min(0, 'Giá phải lớn hơn hoặc bằng 0'),
+  salePrice: z.coerce.number().min(0, 'Giá sale phải lớn hơn hoặc bằng 0').optional().nullable().or(z.literal('')),
   imageUrl: z.string().url('URL ảnh không hợp lệ'),
   shortDescription: z.string().optional(),
   description: z.string().optional(),
-  sizes: z.array(z.string()).optional(),
-  colors: z.array(z.string()).optional(),
-  stockQuantity: z.number().min(0, 'Số lượng phải lớn hơn hoặc bằng 0'),
+  sizes: z.string().optional(),
+  colors: z.string().optional(),
+  stockQuantity: z.coerce.number().min(0, 'Số lượng phải lớn hơn hoặc bằng 0'),
   status: z.enum(['active', 'inactive', 'out_of_stock']),
-  isFeatured: z.boolean(),
-  isNew: z.boolean(),
-  isBestSeller: z.boolean(),
+  isFeatured: z.boolean().optional(),
+  isNew: z.boolean().optional(),
+  isBestSeller: z.boolean().optional(),
 });
 
 export const categorySchema = z.object({

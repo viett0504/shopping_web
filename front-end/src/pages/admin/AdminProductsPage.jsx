@@ -20,11 +20,12 @@ export default function AdminProductsPage() {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const data = await adminProductService.getProducts();
-      setProducts(data);
+      const response = await adminProductService.getProducts({ limit: 100 });
+      setProducts(response.items || []);
     } catch (error) {
       console.error('Error loading products:', error);
       toast.error('Không thể tải danh sách sản phẩm');
+      setProducts([]);
     } finally {
       setLoading(false);
     }

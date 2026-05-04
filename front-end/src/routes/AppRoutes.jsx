@@ -10,6 +10,7 @@ import ProductDetailPage from '../pages/public/ProductDetailPage';
 import CartPage from '../pages/public/CartPage';
 import CheckoutPage from '../pages/public/CheckoutPage';
 import OrderSuccessPage from '../pages/public/OrderSuccessPage';
+import ProfilePage from '../pages/public/ProfilePage';
 
 // Admin Pages
 import AdminLoginPage from '../pages/admin/AdminLoginPage';
@@ -31,6 +32,7 @@ export default function AppRoutes() {
         <Route path="/cart" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/order-success/:orderCode" element={<OrderSuccessPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
       </Route>
 
       {/* Admin Login (No Layout) */}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { productService } from '../../services/productService';
-import { useCartStore } from '../../stores/cartStore';
+import useCartStore from '../../stores/cartStore';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import ProductCard from '../../components/product/ProductCard';
@@ -48,8 +48,8 @@ export default function ProductDetailPage() {
 
       // Load related products
       if (prod.categoryId) {
-        const related = await productService.getProductsByCategory(prod.categoryId, 4);
-        setRelatedProducts(related.filter((p) => p.id !== prod.id));
+        const related = await productService.getRelatedProducts(prod.categoryId, prod.id, 4);
+        setRelatedProducts(related);
       }
     } catch (error) {
       console.error('Error loading product:', error);

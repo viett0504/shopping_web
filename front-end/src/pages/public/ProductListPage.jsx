@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { productService } from '../../services/productService';
 import { categoryService } from '../../services/categoryService';
-import ProductCard from '../../components/product/ProductCard';
 import LoadingSkeleton from '../../components/common/LoadingSkeleton';
 import EmptyState from '../../components/common/EmptyState';
-import Select from '../../components/common/Select';
-import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
-import { Search } from 'lucide-react';
+import { ShoppingCart, ChevronRight } from 'lucide-react';
+import { formatCurrency } from '../../utils/formatCurrency';
+import useCartStore from '../../stores/cartStore';
+import toast from 'react-hot-toast';
 
 export default function ProductListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -16,10 +16,11 @@ export default function ProductListPage() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
-  const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [priceRange, setPriceRange] = useState([0, 5000000]);
+  const addItem = useCartStore((state) => state.addItem);
 
   const currentPage = Number(searchParams.get('page')) || 1;
-  const categoryId = searchParams.get('categoryId');
   const sort = searchParams.get('sort') || 'newest';
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export default function ProductListPage() {
 
   useEffect(() => {
     loadProducts();
-  }, [searchParams]);
+  }, [searchParams, selectedCategories, priceRange]);
 
   const loadCategories = async () => {
     try {
@@ -43,8 +44,9 @@ export default function ProductListPage() {
     try {
       setLoading(true);
       const params = {
-        search: searchParams.get('search'),
-        categoryId: searchParams.get('categoryId'),
+        categoryId: selectedCategories.length > 0 ? selectedCategories[0] : null,
+        minPrice: priceRange[0],
+        maxPrice: priceRange[1],
         sort: searchParams.get('sort') || 'newest',
         page: currentPage,
         limit: 12,
@@ -59,18 +61,6 @@ export default function ProductListPage() {
     }
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    const newParams = new URLSearchParams(searchParams);
-    if (searchInput) {
-      newParams.set('search', searchInput);
-    } else {
-      newParams.delete('search');
-    }
-    newParams.set('page', '1');
-    setSearchParams(newParams);
-  };
-
   const handleSortChange = (e) => {
     const newParams = new URLSearchParams(searchParams);
     newParams.set('sort', e.target.value);
@@ -78,15 +68,14 @@ export default function ProductListPage() {
     setSearchParams(newParams);
   };
 
-  const handleCategoryChange = (catId) => {
-    const newParams = new URLSearchParams(searchParams);
-    if (catId) {
-      newParams.set('categoryId', catId);
-    } else {
-      newParams.delete('categoryId');
-    }
-    newParams.set('page', '1');
-    setSearchParams(newParams);
+  const handleCategoryToggle = (catId) => {
+    setSelectedCategories(prev => {
+      if (prev.includes(catId)) {
+        return prev.filter(id => id !== catId);
+      } else {
+        return [catId]; // Only one category at a time
+      }
+    });
   };
 
   const handlePageChange = (page) => {
@@ -96,154 +85,226 @@ export default function ProductListPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const clearFilters = () => {
-    setSearchInput('');
-    setSearchParams({});
+  const handleQuickAdd = (product) => {
+    const defaultSize = product.sizes?.[0] || '';
+    const defaultColor = product.colors?.[0] || '';
+    
+    addItem({
+      productId: product.id,
+      productName: product.name,
+      productImage: product.imageUrl,
+      price: product.salePrice || product.price,
+      size: defaultSize,
+      color: defaultColor,
+      quantity: 1,
+    });
+    
+    toast.success('Đã thêm vào giỏ hàng!');
   };
 
-  const selectedCategory = categories.find(c => c.id === Number(categoryId));
+  const calculateDiscount = (price, salePrice) => {
+    if (!salePrice) return 0;
+    return Math.round(((price - salePrice) / price) * 100);
+  };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Breadcrumb */}
-      <nav className="text-sm text-gray-600 mb-4">
-        <Link to="/" className="hover:text-blue-600">Trang chủ</Link>
-        <span className="mx-2">/</span>
-        <span>Sản phẩm</span>
-        {selectedCategory && (
-          <>
-            <span className="mx-2">/</span>
-            <span>{selectedCategory.name}</span>
-          </>
-        )}
-      </nav>
+    <div className="bg-gray-50 min-h-screen">
+      <div className="container mx-auto px-4 py-6">
+        {/* Breadcrumb */}
+        <nav className="flex items-center text-sm text-gray-600 mb-6">
+          <Link to="/" className="hover:text-blue-600">Home</Link>
+          <ChevronRight size={16} className="mx-2" />
+          <span className="text-gray-900 font-medium">Tất cả sản phẩm</span>
+        </nav>
 
-      {/* Page Title */}
-      <h1 className="text-3xl font-bold mb-6">
-        {selectedCategory ? selectedCategory.name : 'Tất cả sản phẩm'}
-      </h1>
-
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        {/* Search */}
-        <form onSubmit={handleSearch} className="flex-1 flex gap-2">
-          <Input
-            placeholder="Tìm sản phẩm..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="flex-1"
-          />
-          <Button type="submit">
-            <Search size={20} />
-          </Button>
-        </form>
-
-        {/* Sort */}
-        <Select
-          value={sort}
-          onChange={handleSortChange}
-          options={[
-            { value: 'newest', label: 'Mới nhất' },
-            { value: 'price_asc', label: 'Giá tăng dần' },
-            { value: 'price_desc', label: 'Giá giảm dần' },
-            { value: 'best_seller', label: 'Bán chạy' },
-          ]}
-          className="w-full md:w-48"
-        />
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* Sidebar Filters */}
-        <aside className="w-full md:w-64 space-y-4">
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <h3 className="font-semibold mb-3">Danh mục</h3>
-            <div className="space-y-2">
-              <button
-                onClick={() => handleCategoryChange(null)}
-                className={`block w-full text-left px-3 py-2 rounded ${
-                  !categoryId ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'
-                }`}
-              >
-                Tất cả
-              </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => handleCategoryChange(cat.id)}
-                  className={`block w-full text-left px-3 py-2 rounded ${
-                    categoryId === cat.id.toString() ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'
-                  }`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {(searchParams.toString()) && (
-            <Button variant="outline" onClick={clearFilters} className="w-full">
-              Xóa bộ lọc
-            </Button>
-          )}
-        </aside>
-
-        {/* Products Grid */}
-        <div className="flex-1">
-          {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {[...Array(12)].map((_, i) => (
-                <LoadingSkeleton key={i} className="h-80" />
-              ))}
-            </div>
-          ) : products.length === 0 ? (
-            <EmptyState
-              icon="🔍"
-              title="Không tìm thấy sản phẩm"
-              description="Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm"
-              action={
-                <Button onClick={clearFilters}>
-                  Xóa bộ lọc
-                </Button>
-              }
-            />
-          ) : (
-            <>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* Sidebar */}
+          <aside className="w-full md:w-64 space-y-6">
+            {/* Categories */}
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <h3 className="font-bold text-lg mb-4">Danh mục</h3>
+              <div className="space-y-3">
+                {categories.map((cat) => (
+                  <label key={cat.id} className="flex items-center cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={selectedCategories.includes(cat.id)}
+                      onChange={() => handleCategoryToggle(cat.id)}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-gray-700 group-hover:text-blue-600">
+                      {cat.name}
+                    </span>
+                  </label>
                 ))}
               </div>
+            </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex justify-center gap-2 mt-8">
-                  <Button
-                    variant="outline"
-                    disabled={currentPage === 1}
-                    onClick={() => handlePageChange(currentPage - 1)}
-                  >
-                    Trước
-                  </Button>
-                  {[...Array(totalPages)].map((_, i) => (
-                    <Button
-                      key={i}
-                      variant={currentPage === i + 1 ? 'primary' : 'outline'}
-                      onClick={() => handlePageChange(i + 1)}
-                    >
-                      {i + 1}
-                    </Button>
-                  ))}
-                  <Button
-                    variant="outline"
-                    disabled={currentPage === totalPages}
-                    onClick={() => handlePageChange(currentPage + 1)}
-                  >
-                    Sau
-                  </Button>
+            {/* Price Range */}
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <h3 className="font-bold text-lg mb-4">Mức giá</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">0đ</span>
+                  <span className="text-gray-600">5,000,000đ</span>
                 </div>
-              )}
-            </>
-          )}
+                <input
+                  type="range"
+                  min="0"
+                  max="5000000"
+                  step="100000"
+                  value={priceRange[1]}
+                  onChange={(e) => setPriceRange([0, Number(e.target.value)])}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                />
+                <div className="text-center text-sm font-medium text-gray-900">
+                  {formatCurrency(priceRange[0])} - {formatCurrency(priceRange[1])}
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          {/* Main Content */}
+          <div className="flex-1">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-3xl font-bold text-gray-900">Tất cả sản phẩm</h1>
+              
+              {/* Sort Dropdown */}
+              <div className="relative">
+                <select
+                  value={sort}
+                  onChange={handleSortChange}
+                  className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value="newest">Sắp xếp: Mới nhất</option>
+                  <option value="price_asc">Sắp xếp: Giá tăng dần</option>
+                  <option value="price_desc">Sắp xếp: Giá giảm dần</option>
+                  <option value="best_seller">Sắp xếp: Bán chạy</option>
+                </select>
+                <ChevronRight size={16} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none text-gray-600" />
+              </div>
+            </div>
+
+            {/* Products Grid */}
+            {loading ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {[...Array(8)].map((_, i) => (
+                  <LoadingSkeleton key={i} className="h-96 rounded-lg" />
+                ))}
+              </div>
+            ) : products.length === 0 ? (
+              <EmptyState
+                icon="🔍"
+                title="Không tìm thấy sản phẩm"
+                description="Thử thay đổi bộ lọc"
+              />
+            ) : (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {products.map((product) => {
+                    const discount = calculateDiscount(product.price, product.salePrice);
+                    
+                    return (
+                      <div key={product.id} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow group">
+                        {/* Product Image */}
+                        <Link to={`/products/${product.slug}`} className="block relative aspect-square overflow-hidden bg-gray-100">
+                          <img
+                            src={product.imageUrl}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                          />
+                          
+                          {/* Badges */}
+                          <div className="absolute top-3 left-3 flex flex-col gap-2">
+                            {product.isNew && (
+                              <span className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded">
+                                NEW
+                              </span>
+                            )}
+                            {discount > 0 && (
+                              <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded">
+                                -{discount}% SALE
+                              </span>
+                            )}
+                          </div>
+                        </Link>
+
+                        {/* Product Info */}
+                        <div className="p-4">
+                          <Link to={`/products/${product.slug}`}>
+                            <h3 className="font-medium text-gray-900 mb-2 line-clamp-2 hover:text-blue-600 transition-colors">
+                              {product.name}
+                            </h3>
+                          </Link>
+                          
+                          {/* Price */}
+                          <div className="mb-3">
+                            {product.salePrice ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg font-bold text-blue-600">
+                                  {formatCurrency(product.salePrice)}
+                                </span>
+                                <span className="text-sm text-gray-400 line-through">
+                                  {formatCurrency(product.price)}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-lg font-bold text-gray-900">
+                                {formatCurrency(product.price)}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Add to Cart Button */}
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleQuickAdd(product);
+                            }}
+                            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                          >
+                            <ShoppingCart size={18} />
+                            <span>Thêm nhanh</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center gap-2 mt-8">
+                    <Button
+                      variant="outline"
+                      disabled={currentPage === 1}
+                      onClick={() => handlePageChange(currentPage - 1)}
+                    >
+                      Trước
+                    </Button>
+                    {[...Array(totalPages)].map((_, i) => (
+                      <Button
+                        key={i}
+                        variant={currentPage === i + 1 ? 'primary' : 'outline'}
+                        onClick={() => handlePageChange(i + 1)}
+                      >
+                        {i + 1}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="outline"
+                      disabled={currentPage === totalPages}
+                      onClick={() => handlePageChange(currentPage + 1)}
+                    >
+                      Sau
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
